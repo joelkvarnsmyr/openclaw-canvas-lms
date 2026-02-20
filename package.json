@@ -1,0 +1,42 @@
+{
+  "name": "@joelkvarnsmyr/openclaw-canvas-lms",
+  "version": "1.0.0",
+  "description": "Canvas LMS integration plugin for OpenClaw - courses, assignments, grades, schedule with TimeEdit cross-reference",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "openclaw": {
+    "extensions": [
+      "./dist/index.js"
+    ]
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "keywords": [
+    "openclaw",
+    "canvas",
+    "lms",
+    "education",
+    "university",
+    "schedule",
+    "grades",
+    "timeedit"
+  ],
+  "author": "Joel Kvarnsmyr",
+  "license": "MIT",
+  "peerDependencies": {
+    "@sinclair/typebox": ">=0.28.0"
+  },
+  "devDependencies": {
+    "@sinclair/typebox": "^0.32.0",
+    "@types/node": "^18.19.130",
+    "typescript": "^5.4.0"
+  },
+  "files": [
+    "dist/",
+    "openclaw.plugin.json",
+    "SKILL.md",
+    "README.md"
+  ]
+}

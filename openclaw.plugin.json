@@ -1,0 +1,23 @@
+{
+  "id": "canvas-lms",
+  "name": "Canvas LMS",
+  "description": "Canvas LMS integration - courses, assignments, grades, schedule with TimeEdit cross-reference",
+  "configSchema": {
+    "type": "object",
+    "required": ["canvasApiToken", "canvasBaseUrl"],
+    "properties": {
+      "canvasApiToken": {
+        "type": "string",
+        "description": "Canvas API access token"
+      },
+      "canvasBaseUrl": {
+        "type": "string",
+        "description": "Canvas instance URL, e.g. https://canvas.instructure.com"
+      },
+      "timeeditUrl": {
+        "type": "string",
+        "description": "Optional TimeEdit ICS URL for schedule cross-reference"
+      }
+    }
+  }
+}
