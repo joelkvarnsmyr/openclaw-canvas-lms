@@ -187,7 +187,8 @@ export interface PaginatedResponse<T> {
 export interface CanvasPluginConfig {
   canvasApiToken: string;
   canvasBaseUrl: string;
-  timeeditUrl?: string;
+  scheduleIcsUrl?: string;
+  keywordMap?: Array<[string, string]>;
 }
 
 export interface ToolResult {
@@ -203,7 +204,7 @@ export interface CanvasTool {
   execute: (_id: string, params: Record<string, unknown>) => Promise<ToolResult>;
 }
 
-export interface TimeEditEvent {
+export interface IcsEvent {
   start?: Date;
   end?: Date;
   summary?: string;

@@ -1,7 +1,7 @@
 {
   "id": "canvas-lms",
   "name": "Canvas LMS",
-  "description": "Canvas LMS integration - courses, assignments, grades, schedule with TimeEdit cross-reference",
+  "description": "Canvas LMS integration - courses, assignments, grades, and ICS schedule cross-reference",
   "configSchema": {
     "type": "object",
     "required": ["canvasApiToken", "canvasBaseUrl"],
@@ -14,9 +14,19 @@
         "type": "string",
         "description": "Canvas instance URL, e.g. https://canvas.instructure.com"
       },
-      "timeeditUrl": {
+      "scheduleIcsUrl": {
         "type": "string",
-        "description": "Optional TimeEdit ICS URL for schedule cross-reference"
+        "description": "Optional ICS calendar URL for schedule cross-reference (TimeEdit, Google Calendar, etc.)"
+      },
+      "keywordMap": {
+        "type": "array",
+        "description": "Optional keyword pairs [assignmentKeyword, scheduleKeyword] for crossref matching. If omitted, fuzzy word matching is used.",
+        "items": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 2,
+          "maxItems": 2
+        }
       }
     }
   }

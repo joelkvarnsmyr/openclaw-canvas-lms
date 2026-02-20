@@ -41,7 +41,7 @@ export function registerCanvasPlugin(api: OpenClawPluginApi): void {
     ...createAssignmentTools(client),
     ...createContentTools(client),
     ...createDiscussionTools(client),
-    ...createCalendarTools(client, config.timeeditUrl),
+    ...createCalendarTools(client, config.scheduleIcsUrl, config.keywordMap),
     ...createEnrollmentTools(client),
     ...createFileTools(client),
   ];

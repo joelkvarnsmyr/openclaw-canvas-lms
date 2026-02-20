@@ -1,7 +1,7 @@
 import { Type } from "@sinclair/typebox";
 import type { CanvasClient } from "../canvas-client.js";
 import { paginate } from "../canvas-client.js";
-import { crossReference, fetchTimeEditIcs } from "../timeedit.js";
+import { crossReference, fetchIcs } from "../schedule.js";
 import type {
   Assignment,
   CalendarEvent,
@@ -11,7 +11,8 @@ import type {
 
 export function createCalendarTools(
   client: CanvasClient,
-  timeeditUrl?: string
+  scheduleIcsUrl?: string,
+  keywordMap?: Array<[string, string]>
 ): CanvasTool[] {
   const tools: CanvasTool[] = [
     {
@@ -105,13 +106,13 @@ export function createCalendarTools(
     },
   ];
 
-  // Only add TimeEdit crossref tool if URL is configured
-  if (timeeditUrl) {
+  // Only add schedule crossref tool if ICS URL is configured
+  if (scheduleIcsUrl) {
     tools.push({
-      name: "canvas_timeedit_crossref",
-      label: "Canvas x TimeEdit Cross-Reference",
+      name: "canvas_schedule_crossref",
+      label: "Canvas x Schedule Cross-Reference",
       description:
-        "Cross-reference Canvas assignments with TimeEdit schedule to find implicit deadlines for undated assignments. Use when asked about deadlines or upcoming work.",
+        "Cross-reference Canvas assignments with an ICS schedule (TimeEdit, Google Calendar, etc.) to find implicit deadlines for undated assignments. Use when asked about deadlines or upcoming work.",
       parameters: Type.Object({
         course_id: Type.Number({ description: "Canvas course ID" }),
         days_ahead: Type.Optional(
@@ -122,10 +123,8 @@ export function createCalendarTools(
         ),
       }),
       async execute(_id, params) {
-        // Fetch TimeEdit events
-        const events = await fetchTimeEditIcs(timeeditUrl);
+        const events = await fetchIcs(scheduleIcsUrl);
 
-        // Fetch all Canvas assignments for the course
         const allAssignments: Assignment[] = [];
         const seenIds = new Set<number>();
         for (const bucket of [
@@ -153,7 +152,8 @@ export function createCalendarTools(
         const result = crossReference(
           allAssignments,
           events,
-          (params.days_ahead as number) ?? 30
+          (params.days_ahead as number) ?? 30,
+          keywordMap
         );
 
         return {

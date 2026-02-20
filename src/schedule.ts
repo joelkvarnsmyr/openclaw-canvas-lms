@@ -1,37 +1,21 @@
-import type { TimeEditEvent } from "./types.js";
+import type { IcsEvent } from "./types.js";
 
-const DEFAULT_KEYWORD_MAP: Array<[string, string]> = [
-  ["dante", "digitala mixerbord"],
-  ["signalvagar", "digitala mixerbord"],
-  ["signalvägar", "digitala mixerbord"],
-  ["akustik", "akustik"],
-  ["loudness", "equal loudness"],
-  ["immersiv", "immersiv"],
-  ["spatialt", "immersiv"],
-  ["dolby atmos", "dolby atmos"],
-  ["aes", "aes"],
-  ["ai inom", "ai"],
-  ["seminarium", "seminarium"],
-  ["mixning", "mix"],
-  ["lab", "lab"],
-];
-
-export function parseIcs(text: string): TimeEditEvent[] {
+export function parseIcs(text: string): IcsEvent[] {
   // Unfold long lines (RFC 5545)
   const unfolded = text.replace(/\r\n[ \t]/g, "").replace(/\r?\n[ \t]/g, "");
   const lines = unfolded.includes("\r\n")
     ? unfolded.split("\r\n")
     : unfolded.split("\n");
 
-  const events: TimeEditEvent[] = [];
-  let current: Partial<TimeEditEvent> | null = null;
+  const events: IcsEvent[] = [];
+  let current: Partial<IcsEvent> | null = null;
 
   for (const rawLine of lines) {
     const line = rawLine.trim();
     if (line === "BEGIN:VEVENT") {
       current = {};
     } else if (line === "END:VEVENT" && current) {
-      events.push(current as TimeEditEvent);
+      events.push(current as IcsEvent);
       current = null;
     } else if (current && line.includes(":")) {
       const colonIdx = line.indexOf(":");
@@ -60,12 +44,10 @@ function parseDt(s: string): Date | undefined {
   const trimmed = s.trim();
   try {
     if (trimmed.endsWith("Z")) {
-      // 20260220T083000Z
       return parseIcsDate(trimmed.slice(0, -1));
     } else if (trimmed.includes("T")) {
       return parseIcsDate(trimmed);
     } else {
-      // Date only: 20260220
       const y = parseInt(trimmed.substring(0, 4));
       const m = parseInt(trimmed.substring(4, 6)) - 1;
       const d = parseInt(trimmed.substring(6, 8));
@@ -86,23 +68,49 @@ function parseIcsDate(s: string): Date {
   return new Date(Date.UTC(y, m, d, h, min, sec));
 }
 
+/**
+ * Match assignment name to ICS events using keyword pairs.
+ * If no keywordMap is provided, falls back to fuzzy word overlap matching.
+ */
 export function matchAssignmentToEvents(
   assignmentName: string,
-  events: TimeEditEvent[],
-  keywordMap: Array<[string, string]> = DEFAULT_KEYWORD_MAP
-): TimeEditEvent[] {
+  events: IcsEvent[],
+  keywordMap?: Array<[string, string]>
+): IcsEvent[] {
   const nameLower = assignmentName.toLowerCase();
-  const matches: TimeEditEvent[] = [];
+  const matches: IcsEvent[] = [];
 
-  for (const [kwCanvas, kwTimeedit] of keywordMap) {
-    if (nameLower.includes(kwCanvas)) {
+  if (keywordMap && keywordMap.length > 0) {
+    // Explicit keyword matching
+    for (const [kwAssignment, kwEvent] of keywordMap) {
+      if (nameLower.includes(kwAssignment.toLowerCase())) {
+        for (const ev of events) {
+          const evText = (
+            (ev.summary ?? "") + " " + (ev.description ?? "")
+          ).toLowerCase();
+          if (evText.includes(kwEvent.toLowerCase())) {
+            matches.push(ev);
+          }
+        }
+      }
+    }
+  } else {
+    // Fuzzy matching: split assignment name into words (3+ chars),
+    // match events containing any of those words
+    const words = nameLower
+      .split(/[\s:,\-–—()]+/)
+      .filter((w) => w.length >= 3)
+      .filter((w) => !STOP_WORDS.has(w));
+
+    if (words.length > 0) {
       for (const ev of events) {
         const evText = (
-          (ev.summary ?? "") +
-          " " +
-          (ev.description ?? "")
+          (ev.summary ?? "") + " " + (ev.description ?? "")
         ).toLowerCase();
-        if (evText.includes(kwTimeedit)) {
+        const matchCount = words.filter((w) => evText.includes(w)).length;
+        // Require at least 1 word match, or 2+ if assignment name has many words
+        const threshold = words.length >= 4 ? 2 : 1;
+        if (matchCount >= threshold) {
           matches.push(ev);
         }
       }
@@ -111,7 +119,7 @@ export function matchAssignmentToEvents(
 
   // Deduplicate by start time
   const seen = new Set<string>();
-  const unique: TimeEditEvent[] = [];
+  const unique: IcsEvent[] = [];
   for (const m of matches) {
     const key = String(m.start?.getTime() ?? "none");
     if (!seen.has(key)) {
@@ -127,12 +135,19 @@ export function matchAssignmentToEvents(
   });
 }
 
-export async function fetchTimeEditIcs(url: string): Promise<TimeEditEvent[]> {
+// Common words to ignore in fuzzy matching (Swedish + English)
+const STOP_WORDS = new Set([
+  "och", "med", "för", "den", "det", "att", "som", "har", "till",
+  "och", "the", "and", "for", "with", "from", "this", "that",
+  "inlämning", "uppgift", "assignment", "task", "submission",
+]);
+
+export async function fetchIcs(url: string): Promise<IcsEvent[]> {
   const response = await fetch(url, {
     headers: { "User-Agent": "openclaw-canvas-lms/1.0.0" },
   });
   if (!response.ok) {
-    throw new Error(`TimeEdit fetch failed: ${response.status} ${response.statusText}`);
+    throw new Error(`ICS fetch failed: ${response.status} ${response.statusText}`);
   }
   const text = await response.text();
   return parseIcs(text);
@@ -164,20 +179,19 @@ export function crossReference(
     points_possible?: number | null;
     html_url?: string | null;
   }>,
-  events: TimeEditEvent[],
-  daysAhead: number = 30
+  events: IcsEvent[],
+  daysAhead: number = 30,
+  keywordMap?: Array<[string, string]>
 ): CrossRefResult[] {
   const now = new Date();
   const cutoff = new Date(now.getTime() + daysAhead * 24 * 60 * 60 * 1000);
 
-  const relevant = events.filter(
-    (e) => e.start && e.start <= cutoff
-  );
+  const relevant = events.filter((e) => e.start && e.start <= cutoff);
 
   const results: CrossRefResult[] = [];
 
   for (const a of assignments) {
-    const matchedEvents = matchAssignmentToEvents(a.name, relevant);
+    const matchedEvents = matchAssignmentToEvents(a.name, relevant, keywordMap);
 
     const entry: CrossRefResult = {
       assignment: a.name,
@@ -200,9 +214,7 @@ export function crossReference(
       if (lastEvent.start) {
         entry.implied_deadline = formatDate(lastEvent.start);
         entry.implied_reason = `Last matching event: ${(
-          lastEvent.description ??
-          lastEvent.summary ??
-          ""
+          lastEvent.description ?? lastEvent.summary ?? ""
         ).substring(0, 80)}`;
       }
     }
@@ -210,11 +222,12 @@ export function crossReference(
     results.push(entry);
   }
 
-  // Sort: undated with matches first, then by date
   results.sort((a, b) => {
     if (a.has_due_date !== b.has_due_date) return a.has_due_date ? 1 : -1;
-    const aDate = a.implied_deadline ?? a.canvas_due_date?.substring(0, 10) ?? "9999";
-    const bDate = b.implied_deadline ?? b.canvas_due_date?.substring(0, 10) ?? "9999";
+    const aDate =
+      a.implied_deadline ?? a.canvas_due_date?.substring(0, 10) ?? "9999";
+    const bDate =
+      b.implied_deadline ?? b.canvas_due_date?.substring(0, 10) ?? "9999";
     return aDate.localeCompare(bDate);
   });
 
