@@ -1,5 +1,5 @@
 {
-  "name": "@joelkvarnsmyr/openclaw-canvas-lms",
+  "name": "@joelkvarnsmyr/canvas-lms",
   "version": "1.0.0",
   "description": "Canvas LMS integration plugin for OpenClaw - courses, assignments, grades, schedule with TimeEdit cross-reference",
   "main": "dist/index.js",
